@@ -8,6 +8,7 @@ import {
   Index,
   Point,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { TypesenseService } from '../services/typesenseService';
 import geohash from 'ngeohash';
@@ -19,11 +20,16 @@ import { config } from 'dotenv';
 config();
 
 @Entity()
+@Unique(['eventId'])
 export class NostrListing {
   public static INDEX_NAME = 'nostr_listing';
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column('varchar', { length: 64 })
+  eventId: string;
+
 
   @Column('varchar', { length: 66 })
   pubkey: string;
@@ -84,7 +90,7 @@ export class NostrListing {
 
   static fromNostrEvent(event: NostrEvent): NostrListing {
     const listing = new NostrListing();
-    listing.id = event.id;
+    listing.eventId = event.id;
     listing.pubkey = event.pubkey;
     listing.kind = event.kind;
     listing.content = event.content;
@@ -179,7 +185,7 @@ export class NostrListing {
     console.log('this.tags', this.tags);
 
     const baseDoc = {
-      id: this.id.toString(),
+      id: this.eventId.toString(),
       title: this.title,
       description: this.content,
       location: {
@@ -215,6 +221,34 @@ export class NostrListing {
     if (this.attribution) baseDoc.attribution = this.attribution;
 
     await typesenseService.indexDocument(NostrListing.INDEX_NAME, baseDoc);
+  }
+
+  asNostrEvent(): NostrEvent {
+    let e = {
+      id: this.eventId,
+      pubkey: this.pubkey,
+      created_at: this.created_at.getTime() / 1000,
+      kind: this.kind,
+      content: this.content,
+      tags: Object.entries(this.tags).map(([k, v]) => [k, ...v]),
+    };
+
+    e.tags = e.tags.map((tag: string[]) => {
+      if (typeof tag[1] === 'boolean') {
+        tag[1] = String(tag[1]);
+      }
+      return tag;
+    });
+
+    e.tags = [
+      ...e.tags,
+      ...this.images.map(
+        (image) =>
+          ['image', `${process.env.BLOSSOM_SERVER}/${image.sha256}.jpeg`, `${image.width}x${image.height}`]
+      ),
+    ];
+
+    return e;
   }
 
   @AfterRemove()

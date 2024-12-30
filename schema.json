@@ -1,0 +1,17 @@
+{
+  "name": "nostr_listing",
+  "enable_nested_fields": true,
+  "fields": [
+    { "name": ".*", "type": "auto" },
+    { "name": "price", "type": "int32", "facet": true },
+    { "name": "property.size", "type": "int32", "facet": true },
+    { "name": "property.bedrooms", "type": "int32", "facet": true },
+    { "name": "resin-type", "type": "string", "facet": true },
+    { "name": "location.street", "type": "string", "facet": true },
+    { "name": "location.district", "type": "string", "facet": true },
+    { "name": "location.city", "type": "string", "facet": true },
+    { "name": "location.country", "type": "string", "facet": true },
+    { "name": "location.coordinates", "type": "geopoint", "sort": true },
+    { "name": "images", "type": "string[]", "sort": false, "facet": false }
+  ]
+}

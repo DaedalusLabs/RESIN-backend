@@ -57,5 +57,8 @@
     "websocket-ts": "^2.1.5",
     "zammad-ts-api": "^0.2.4"
   },
+  "resolutions": {
+    "cross-spawn": ">=7.0.5"
+  },
   "packageManager": "yarn@4.5.3"
 }

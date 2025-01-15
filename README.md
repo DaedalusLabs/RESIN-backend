@@ -568,8 +568,23 @@ Development:
 
 Data Management:
 
-- `pnpm run import`: Import data from data.json
+- `pnpm run import <path-to-json-file>`: Import listings from a JSON file
 - `pnpm reindex`: Reindex the Typesense collections
 - `pnpm load-fixtures`: Load test data into the database
-- `pnpm update-images`: Update and process images in the database
+- `pnpm update-images`: Update and process images in the database (requires NOSTR_PRIVKEY and BLOSSOM_SERVER env vars)
 - `pnpm migrate-event-history`: Migrate historical Nostr events
+
+Nostr Integration:
+
+- `pnpm publish`: Publish all listings to Nostr relays (requires NOSTR_PRIVKEY env var)
+- `pnpm unpublish`: Remove all listings from Nostr relays (requires NOSTR_PRIVKEY env var)
+- `pnpm nostr-test`: Test Nostr messaging functionality (requires NOSTR_PRIVKEY env var)
+
+Image Processing:
+
+- `pnpm resize-images <path-to-json-file>`: Resize and optimize images from a JSON file
+- `pnpm upload`: Upload media files to Blossom server
+
+Support System:
+
+- `pnpm zammad-nostr`: Run the Zammad-Nostr bridge for customer support integration

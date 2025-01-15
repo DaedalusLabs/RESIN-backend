@@ -3,15 +3,18 @@
   "enable_nested_fields": true,
   "fields": [
     { "name": ".*", "type": "auto" },
+    { "name": "kind", "type": "int32" },
     { "name": "price", "type": "int32", "facet": true },
     { "name": "property.size", "type": "int32", "facet": true },
     { "name": "property.bedrooms", "type": "int32", "facet": true },
+    { "name": "key_features", "type": "string[]", "facet": true },
+    { "name": "additional_details.type", "type": "string", "facet": true },
     { "name": "resin-type", "type": "string", "facet": true },
     { "name": "location.street", "type": "string", "facet": true },
     { "name": "location.district", "type": "string", "facet": true },
     { "name": "location.city", "type": "string", "facet": true },
     { "name": "location.country", "type": "string", "facet": true },
     { "name": "location.coordinates", "type": "geopoint", "sort": true },
-    { "name": "images", "type": "string[]", "sort": false, "facet": false }
+    { "name": "images", "type": "object[]", "sort": false, "facet": false }
   ]
 }

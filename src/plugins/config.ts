@@ -10,8 +10,9 @@ export const configSchema = Type.Object({
   TYPESENSE_API_KEY: Type.String(),
   NOSTR_RELAY1: Type.String({ default: 'nostr2.daedaluslabs.io' }),
   NOSTR_RELAY2: Type.String({ default: 'nostr3.daedaluslabs.io' }),
-  BTCPAYSERVER_ENDPOINT: Type.String(),
-  BTCPAYSERVER_API_KEY: Type.String(),
+  BTCPAY_BASE_URL: Type.String(),
+  BTCPAY_API_KEY: Type.String(),
+  BTCPAY_STORE_ID: Type.String(),
   ZAMMAD_HOST: Type.String(),
   ZAMMAD_API_KEY: Type.String(),
 });

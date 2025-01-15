@@ -26,7 +26,7 @@ export class ZammadService {
     };
   }
 
-  async createTicket(params: TicketParams): Promise<any> {
+  async createTicket(params: TicketParams): Promise<unknown> {
     try {
       const response = await fetch(`${this.baseUrl}/tickets`, {
         method: 'POST',

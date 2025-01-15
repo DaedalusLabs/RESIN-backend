@@ -6,11 +6,12 @@ import NDK, {
   NDKUserProfile,
 } from '@nostr-dev-kit/ndk';
 import 'websocket-polyfill';
-import { sendDirectMessage, unwrapMessage } from './lib/nip44';
+import { sendDirectMessage, unwrapMessage } from '../lib/nip44';
 import axios from 'axios';
 import sharp from 'sharp';
-import { AppDataSource } from './config/db';
-import { ZammadNostrResponse } from './entities/ZammadNostrResponse';
+import { AppDataSource } from '../config/db';
+import { ZammadNostrResponse } from '../entities/ZammadNostrResponse';
+import { nip19 } from 'nostr-tools';
 
 config();
 
@@ -22,6 +23,7 @@ const nostrRelays = [
   'wss://nostr1.daedaluslabs.io',
   'wss://nostr2.daedaluslabs.io',
   'wss://nostr3.daedaluslabs.io',
+  'wss://nostr4.daedaluslabs.io',
 ];
 
 const signer = new NDKPrivateKeySigner(process.env.NOSTR_PRIVKEY);
@@ -35,69 +37,80 @@ class NostrZammadBridge {
   }
 
   async getOrCreateZammadUser(pubkey: string, profile?: NDKUserProfile) {
+    const npub = nip19.npubEncode(pubkey);
+
     const userParams = {
-      email: `${pubkey}@nostr.bridge`,
-      login: pubkey,
+      email: `${pubkey}@no.str`,
+      login: `${npub.slice(4)}`,
       firstname: profile && profile.displayName ? profile.displayName : 'Nostr',
       lastname: `User ${pubkey.slice(0, 8)}`,
       note: pubkey,
     };
 
+    console.log('userParams', userParams);
+
     let user;
     const users = await this.zammadClient.user.search({ query: pubkey });
 
-    if (users.length) {
-      user = users.at(0);
-    } else {
-      user = await this.zammadClient.user.create(userParams);
-    }
+    try {
+      if (users.length) {
+        user = users.at(0);
+      } else {
+        user = await this.zammadClient.user.create(userParams);
+      }
 
-    if (profile) {
-      if (profile.image) {
-        try {
-          // Download the image
-          const imageResponse = await axios({
-            url: profile.image,
-            method: 'GET',
-            responseType: 'arraybuffer',
-          });
-          const imageBuffer = Buffer.from(imageResponse.data);
+      if (profile) {
+        if (profile.image) {
+          try {
+            // Download the image
+            const imageResponse = await axios({
+              url: profile.image,
+              method: 'GET',
+              responseType: 'arraybuffer',
+            });
+            const imageBuffer = Buffer.from(imageResponse.data);
 
-          // Create full size and resized versions using sharp
-          const fullSizeBuffer = await sharp(imageBuffer)
-            .jpeg({ quality: 90 })
-            .toBuffer();
+            // Create full size and resized versions using sharp
+            const fullSizeBuffer = await sharp(imageBuffer)
+              .jpeg({ quality: 90 })
+              .toBuffer();
 
-          const resizedBuffer = await sharp(imageBuffer)
-            .resize(140, 140, { fit: 'cover' })
-            .jpeg({ quality: 90 })
-            .toBuffer();
+            const resizedBuffer = await sharp(imageBuffer)
+              .resize(140, 140, { fit: 'cover' })
+              .jpeg({ quality: 90 })
+              .toBuffer();
 
-          // Convert both versions to base64
-          const avatarFull = `data:image/jpeg;base64,${fullSizeBuffer.toString('base64')}`;
-          const avatarResize = `data:image/jpeg;base64,${resizedBuffer.toString('base64')}`;
+            // Convert both versions to base64
+            const avatarFull = `data:image/jpeg;base64,${fullSizeBuffer.toString('base64')}`;
+            const avatarResize = `data:image/jpeg;base64,${resizedBuffer.toString('base64')}`;
 
-          // Upload the avatar
-          const uploadResponse = await axios.post(
-            `${process.env.ZAMMAD_HOST}/api/v1/users/avatar`,
-            {
-              user_id: user?.id,
-              avatar_full: avatarFull,
-              avatar_resize: avatarResize,
-            },
-            {
-              headers: {
-                Authorization: `Token token=${process.env.ZAMMAD_API_KEY}`,
-                'Content-Type': 'application/json; charset=utf-8',
-                'X-On-Behalf-Of': user?.id,
+            // Upload the avatar
+            const uploadResponse = await axios.post(
+              `${process.env.ZAMMAD_HOST}/api/v1/users/avatar`,
+              {
+                user_id: user?.id,
+                avatar_full: avatarFull,
+                avatar_resize: avatarResize,
               },
-            }
-          );
-        } catch (error) {
-          console.error('Error processing avatar:', error);
-          throw error;
+              {
+                headers: {
+                  Authorization: `Token token=${process.env.ZAMMAD_API_KEY}`,
+                  'Content-Type': 'application/json; charset=utf-8',
+                  'X-On-Behalf-Of': user?.id,
+                },
+              }
+            );
+
+            console.log('uploadResponse', uploadResponse);
+          } catch (error) {
+            console.error('Error processing avatar:', error);
+            throw error;
+          }
         }
       }
+    } catch (error) {
+      console.error('Error creating user:', error.message);
+      //   throw error;
     }
 
     return user;
@@ -176,7 +189,7 @@ class NostrZammadBridge {
     }
 
     const customer_id = customer.id;
-
+    // return;
     const exists = await this.zammadClient.ticket.search({
       query: `${nostrEvent.id}`,
     });
@@ -258,7 +271,7 @@ class NostrZammadBridge {
   const filter: NDKFilter = {
     kinds: [1059], // Gift wrap kind
     '#p': [pubKey],
-    since: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 0.5, // Last 7 days
+    since: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 7, // Last 7 days
   };
 
   const messages = await ndk.subscribe(filter, { closeOnEose: false });
@@ -270,7 +283,9 @@ class NostrZammadBridge {
 
   messages.on('event', async (e) => {
     const u = await unwrapMessage(e, ndk);
-    const profile = await u.user.profile;
+    const profile: NDKUserProfile = await u.user.fetchProfile();
+
+    console.log('profile', profile);
     console.log(`New message from ${u.pubkey} content: ${u.content}`);
 
     if (u.pubkey == pubKey) return;
@@ -283,10 +298,11 @@ class NostrZammadBridge {
         },
         profile
       );
-    } catch {
+    } catch (error) {
       console.log(
-        `Error creating ticket for ${u.pubkey} content: ${u.content}`
+        `Error creating ticket for ${u.pubkey} content: ${u.content} - ${error.message}`
       );
+      console.log(error);
     }
     //        console.log(u.pubkey, await u.user.profile);
   });

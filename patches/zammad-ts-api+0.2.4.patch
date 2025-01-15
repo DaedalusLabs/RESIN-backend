@@ -1,0 +1,32 @@
+diff --git a/node_modules/zammad-ts-api/dist/Client/Client.js b/node_modules/zammad-ts-api/dist/Client/Client.js
+index 4a23fda..f437719 100644
+--- a/node_modules/zammad-ts-api/dist/Client/Client.js
++++ b/node_modules/zammad-ts-api/dist/Client/Client.js
+@@ -26,7 +26,7 @@ export default class ZammadClient {
+         let authHeader;
+         let authObj;
+         if (this.token) {
+-            authHeader = `Token: ${this.token}`;
++            authHeader = `Token token=${this.token}`;
+             this.authMode = "token";
+         }
+         else if (this.bearer) {
+@@ -43,12 +43,17 @@ export default class ZammadClient {
+         else {
+             this.authMode = "none";
+         }
++        // console.log("JEADER", authHeader, this.token);
++        // exit(0);
++
+         this.httpClient = Axios.create({
+             baseURL: this.host + API_PREFIX,
+-            auth: authObj,
++            // auth: authObj,
+             headers: {
+                 "User-Agent": userAgent,
+                 Authorization: authHeader,
++                "Content-Type": 'application/json',
++                "Accept": 'application/json'
+             },
+             validateStatus: (status) => [200, 201].includes(status),
+         });

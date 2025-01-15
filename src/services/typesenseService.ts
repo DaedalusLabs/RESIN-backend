@@ -1,6 +1,10 @@
 import Typesense from 'typesense';
 import tsSchema from '../../schema.json';
 
+import mainLogger from './logger';
+
+const logger = mainLogger.child({ module: 'typesense' });
+
 export class TypesenseService {
   private client: Typesense.Client;
 
@@ -14,7 +18,7 @@ export class TypesenseService {
         },
       ],
       apiKey: process.env.TYPESENSE_API_KEY || 'resin_development',
-      logLevel: 'debug',
+      logLevel: 'info',
     });
   }
 
@@ -42,7 +46,7 @@ export class TypesenseService {
         .documents()
         .upsert(document);
     } catch (error) {
-      console.error('Error indexing document:', error);
+      logger.error('Error indexing document:', error);
     }
   }
 
@@ -53,7 +57,7 @@ export class TypesenseService {
         .documents(documentId)
         .delete();
     } catch (error) {
-      console.error('Error deleting document:', error);
+      logger.error('Error deleting document:', error);
     }
   }
 }

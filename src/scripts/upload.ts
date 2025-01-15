@@ -1,12 +1,10 @@
-import { NostrListing } from './entities/NostrListing';
-import { AppDataSource } from './config/db';
+import { AppDataSource } from '../config/db';
 
 import { config } from 'dotenv';
 import NDK, { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import { nostrRelays } from './config/nostrRelays';
+import { nostrRelays } from '../config/nostrRelays';
 import { BlossomClient, EventTemplate } from 'blossom-client-sdk';
 import { UnsignedEvent, getEventHash } from 'nostr-tools';
-import { processImage } from './lib/image_utils.js';
 
 config();
 
@@ -52,35 +50,35 @@ async function uploadMedia() {
   const blobs = await listBlobs();
   console.log('Current blobs', blobs);
 
-  try {
-    const listingRepository = AppDataSource.getRepository(NostrListing);
-    const listings = await listingRepository.find();
-    for (const listing of listings) {
-      const uploadedFiles = [];
+  // try {
+  //   const listingRepository = AppDataSource.getRepository(NostrListing);
+  //   const listings = await listingRepository.find();
+  //   for (const listing of listings) {
+  //     const uploadedFiles = [];
 
-      for (const image of listing.images) {
-        try {
-          const { file, sha256 } = await processImage(image);
-          const foundBlob = blobs?.find((b) => b.sha256 === sha256);
-          if (foundBlob) {
-            console.log(`Blob ${foundBlob.sha256} already exists`);
-          } else {
-            const blob = await blossomClient.uploadBlob(file);
-            console.log(`Uploaded ${blob.url}`);
-            uploadedFiles.push(blob.url);
-          }
-        } catch (error) {
-          console.error(`Error processing image ${image.url}:`, error);
-        }
-      }
-      console.log(`Uploaded ${uploadedFiles.length} files`);
-    }
-    console.log(`Reindexed ${listings.length} listings`);
-  } catch (error) {
-    console.error('Error during reindexing:', error);
-  } finally {
-    await AppDataSource.destroy();
-  }
+  //     for (const image of listing.images) {
+  //       try {
+  //         const { file, sha256 } = await processImage(image);
+  //         const foundBlob = blobs?.find((b) => b.sha256 === sha256);
+  //         if (foundBlob) {
+  //           console.log(`Blob ${foundBlob.sha256} already exists`);
+  //         } else {
+  //           const blob = await blossomClient.uploadBlob(file);
+  //           console.log(`Uploaded ${blob.url}`);
+  //           uploadedFiles.push(blob.url);
+  //         }
+  //       } catch (error) {
+  //         console.error(`Error processing image ${image.url}:`, error);
+  //       }
+  //     }
+  //     console.log(`Uploaded ${uploadedFiles.length} files`);
+  //   }
+  //   console.log(`Reindexed ${listings.length} listings`);
+  // } catch (error) {
+  //   console.error('Error during reindexing:', error);
+  // } finally {
+  //   await AppDataSource.destroy();
+  // }
 }
 
 uploadMedia()

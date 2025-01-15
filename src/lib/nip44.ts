@@ -4,17 +4,29 @@ import NDK, {
   NDKUser,
 } from '@nostr-dev-kit/ndk';
 
+interface UnsignedMessage {
+  kind: number;
+  content: string;
+  tags: string[][];
+  created_at: number;
+}
+
 export async function unwrapMessage(event: NDKEvent, ndk: NDK) {
   let sealSender = ndk.getUser({
     pubkey: event.pubkey,
   });
 
-  if (sealSender.pubkey == (await ndk.signer?.user())?.pubkey) {
-    sealSender = await ndk.signer?.user()!;
+  const signerUser = await ndk.signer?.user();
+  if (signerUser && sealSender.pubkey === signerUser.pubkey) {
+    sealSender = signerUser;
+  }
+
+  if (!ndk.signer) {
+    throw new Error('No signer available');
   }
 
   // Unwrap gift wrap
-  const sealedContent = await ndk.signer?.decrypt(
+  const sealedContent = await ndk.signer.decrypt(
     sealSender,
     event.content,
     'nip44'
@@ -26,14 +38,12 @@ export async function unwrapMessage(event: NDKEvent, ndk: NDK) {
   });
 
   // Unwrap seal
-  const messageContent = await ndk.signer?.decrypt(
+  const messageContent = await ndk.signer.decrypt(
     messageSender,
     seal.content,
     'nip44'
   );
   const message = JSON.parse(messageContent || '{}');
-
-  await messageSender.fetchProfile();
 
   return {
     id: event.id,
@@ -50,8 +60,12 @@ export async function sendDirectMessage(
   content: string,
   ndk: NDK
 ) {
+  if (!ndk.signer) {
+    throw new Error('No signer available');
+  }
+
   // Create unsigned kind 14 message
-  const unsignedMsg = {
+  const unsignedMsg: UnsignedMessage = {
     kind: 14,
     content,
     tags: [['p', recipientPubkey]],
@@ -62,9 +76,14 @@ export async function sendDirectMessage(
     pubkey: recipientPubkey,
   });
 
+  const signerUser = await ndk.signer.user();
+  if (!signerUser) {
+    throw new Error('No signer user available');
+  }
+
   const wraps = await Promise.all([
     giftWrapMessage(unsignedMsg, recipient, ndk),
-    giftWrapMessage(unsignedMsg, await ndk?.signer?.user()!, ndk),
+    giftWrapMessage(unsignedMsg, signerUser, ndk),
   ]);
 
   await Promise.all(wraps.map((wrap) => wrap.publish()));
@@ -73,20 +92,19 @@ export async function sendDirectMessage(
 }
 
 export async function giftWrapMessage(
-  unsignedMsg: string,
+  unsignedMsg: UnsignedMessage,
   targetUser: NDKUser,
   ndk: NDK
 ) {
-  if (!ndk?.signer) {
-    console.log('no signer');
+  if (!ndk.signer) {
+    throw new Error('No signer available');
   }
-
-  const signer = await ndk?.signer;
 
   // Create seal (kind 13)
   const seal = new NDKEvent(ndk);
   seal.kind = 13;
-  seal.content = await signer?.encrypt(
+  seal.created_at = Math.floor(Date.now() / 1000);
+  seal.content = await ndk.signer.encrypt(
     targetUser,
     JSON.stringify(unsignedMsg),
     'nip44'
@@ -107,6 +125,5 @@ export async function giftWrapMessage(
   );
   await giftWrap.sign(randomSigner);
 
-  // Send to recipient's preferred relays
   return giftWrap;
 }

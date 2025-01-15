@@ -1,8 +1,8 @@
 import { config } from 'dotenv';
 import NDK, { NDKFilter, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import 'websocket-polyfill';
-import { sendDirectMessage, unwrapMessage } from './lib/nip44';
-import { AppDataSource } from './config/db';
+import { sendDirectMessage, unwrapMessage } from '../lib/nip44';
+import { AppDataSource } from '../config/db';
 
 config();
 
@@ -48,7 +48,6 @@ const ndk = new NDK({ signer: signer, explicitRelayUrls: nostrRelays });
 
   messages.on('event', async (e) => {
     const u = await unwrapMessage(e, ndk);
-    const profile = await u.user.profile;
 
     if (u.pubkey == pubKey) return;
     try {

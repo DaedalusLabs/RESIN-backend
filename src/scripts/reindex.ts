@@ -1,6 +1,6 @@
-import { TypesenseService } from './services/typesenseService';
-import { NostrListing } from './entities/NostrListing';
-import { AppDataSource } from './config/db';
+import { TypesenseService } from '../services/typesenseService';
+import { NostrListing } from '../entities/NostrListing';
+import { AppDataSource } from '../config/db';
 
 import { config } from 'dotenv';
 

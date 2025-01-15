@@ -2,4 +2,13 @@ postgres_data
 node_modules
 .env
 static/**
+!static/*.png
+!static/*.svg
+
+*.json
 *.csv
+!package.json
+!tsconfig.json
+!schema.json
+.pnpm-store
+.DS_Store

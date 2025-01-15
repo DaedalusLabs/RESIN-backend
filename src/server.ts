@@ -118,6 +118,33 @@ server.register(fastifyStatic, {
   root: path.join(__dirname, '/../static'),
 });
 
+// Add proxy route for Typesense multi_search
+server.all('/multi_search', async (request, reply) => {
+  const typesenseUrl = `http://${server.conf.TYPESENSE_HOST}:${server.conf.TYPESENSE_PORT}/multi_search`;
+  const apiKey = request.headers['x-typesense-api-key'];
+  
+  if (!apiKey) {
+    return reply.status(400).send({ error: 'X-TYPESENSE-API-KEY header is required' });
+  }
+  
+  try {
+    const response = await fetch(typesenseUrl, {
+      method: request.method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-TYPESENSE-API-KEY': apiKey as string
+      },
+      body: request.method !== 'GET' ? JSON.stringify(request.body) : undefined
+    });
+
+    const data = await response.json();
+    return reply.send(data);
+  } catch (error) {
+    request.log.error('Error proxying to Typesense:', error);
+    return reply.status(500).send({ error: 'Failed to proxy request to Typesense' });
+  }
+});
+
 let nostrService: NostrService;
 let webPushService: WebPushService;
 

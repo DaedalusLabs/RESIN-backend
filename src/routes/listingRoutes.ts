@@ -129,10 +129,7 @@ export async function listingRoutes(fastify: FastifyInstance) {
         tags: ['listings'],
         params: ListingParamsSchema,
         response: {
-          200: Type.Object({
-            id: Type.String(),
-            // Add other listing properties
-          }),
+          200: Type.Any(),
           404: Type.Object({
             error: Type.String(),
           }),

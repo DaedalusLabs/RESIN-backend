@@ -3,18 +3,8 @@ import NDK, { NDKFilter, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import 'websocket-polyfill';
 import { sendDirectMessage, unwrapMessage } from '../lib/nip44';
 import { AppDataSource } from '../config/db';
-
+import { nostrRelays } from '../config/nostrRelays.js';
 config();
-
-const nostrRelays = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://relay.primal.net',
-  'wss://nostr.dbtc.link',
-  'wss://nostr1.daedaluslabs.io',
-  'wss://nostr2.daedaluslabs.io',
-  'wss://nostr3.daedaluslabs.io',
-];
 
 const signer = new NDKPrivateKeySigner(process.env.NOSTR_PRIVKEY);
 const ndk = new NDK({ signer: signer, explicitRelayUrls: nostrRelays });

@@ -4,16 +4,9 @@ import 'websocket-polyfill';
 import { AppDataSource } from '../config/db.js';
 import { NostrListing } from '../entities/NostrListing.js';
 import { QueryFailedError } from 'typeorm';
+import { nostrRelays } from '../config/nostrRelays.js';
 
 config();
-
-const nostrRelays = [
-  // 'wss://nostr.dbtc.link',
-  'wss://nostr1.daedaluslabs.io',
-  'wss://nostr2.daedaluslabs.io',
-  'wss://nostr3.daedaluslabs.io',
-  'wss://nostr4.daedaluslabs.io',
-];
 
 const signer = new NDKPrivateKeySigner(process.env.NOSTR_PRIVKEY);
 const ndk = new NDK({

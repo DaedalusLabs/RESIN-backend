@@ -1,15 +1,10 @@
 import { config } from 'dotenv';
 import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import 'websocket-polyfill';
+import { nostrRelays } from '../config/nostrRelays.js';
 
 config();
 
-const nostrRelays = [
-  'wss://nostr1.daedaluslabs.io',
-  'wss://nostr2.daedaluslabs.io',
-  'wss://nostr3.daedaluslabs.io',
-  'wss://nostr4.daedaluslabs.io',
-];
 
 const signer = new NDKPrivateKeySigner(process.env.NOSTR_PRIVKEY);
 const ndk = new NDK({

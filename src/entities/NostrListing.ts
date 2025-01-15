@@ -2,6 +2,8 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  AfterInsert,
+  AfterUpdate,
   Index,
   Point,
   OneToMany,
@@ -15,34 +17,13 @@ import { NostrEvent } from '@nostr-dev-kit/ndk';
 import { Image } from './Image.js';
 import { Property } from './Property.js';
 import { NostrEventHistory } from './NostrEventHistory.js';
+import { AppDataSource } from '../config/db.js';
 import slugify from 'slugify';
+
 import { config } from 'dotenv';
 import { getBasename } from '../util.js';
 
 config();
-
-interface ListingTags {
-  security_system?: boolean;
-  swimming_pool?: boolean;
-  home_office?: boolean;
-  solar_panels?: boolean;
-  parking?: boolean;
-  has_jacuzzi?: boolean;
-  has_coworking?: boolean;
-  has_gym?: boolean;
-  has_garden?: boolean;
-  has_security?: boolean;
-  district?: string;
-  size?: string;
-  bedrooms?: string;
-  cooling?: boolean;
-  garden?: boolean;
-  heating?: boolean;
-  floors?: string;
-  t?: string[];
-  completion_date?: string;
-  [key: string]: unknown;
-}
 
 @Entity()
 @Unique(['d'])
@@ -50,52 +31,52 @@ export class NostrListing {
   public static INDEX_NAME = 'nostr_listing';
 
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  id: string;
 
   @Column('varchar', { length: 64, nullable: true })
-  eventId!: string;
+  eventId: string;
 
   @Column('varchar', { length: 64 })
-  d!: string;
+  d: string;
 
   @Column('varchar', { length: 66 })
-  pubkey!: string;
+  pubkey: string;
 
   @Column('integer')
-  kind!: number;
+  kind: number;
 
   @Column('jsonb')
-  content!: string;
+  content: object;
 
   @Column('timestamp with time zone')
-  created_at!: Date;
+  created_at: Date;
 
   @Column('numeric', { precision: 20, scale: 8, nullable: true })
-  amount!: number | null;
+  amount: number | null;
 
   @Column('varchar', { length: 10, nullable: true })
-  currency!: string | null;
+  currency: string | null;
 
   @Column('varchar', { length: 255, nullable: true })
-  title!: string | null;
+  title: string | null;
 
   @Column('varchar', { length: 100, nullable: true })
-  frequency!: string | null;
+  frequency: string | null;
 
   @Column('varchar', { length: 100, nullable: true })
-  street!: string;
+  street: string;
 
   @Column('varchar', { length: 100, nullable: true })
-  city!: string;
+  city: string;
 
   @Column('varchar', { length: 100, nullable: true })
-  country!: string;
+  country: string;
 
   @Column('varchar', { length: 100, nullable: true })
-  resinType!: string;
+  resinType: string;
 
   @Column('varchar', { length: 200, nullable: true })
-  attribution!: string;
+  attribution: string;
 
   @Index({ spatial: true })
   @Column({
@@ -104,19 +85,19 @@ export class NostrListing {
     srid: 4326,
     nullable: true,
   })
-  location!: Point | null;
+  location: Point | null;
 
   @Column('jsonb', { nullable: true })
-  tags!: ListingTags;
+  tags: object;
 
   @OneToMany(() => Image, (image) => image.listing, {
     cascade: true,
     eager: true,
   })
-  images!: Image[];
+  images: Image[];
 
   @ManyToOne(() => Property, (property) => property.listings)
-  property!: Property;
+  property: Property;
 
   @OneToMany('NostrEventHistory', 'listing', {
     cascade: true,
@@ -125,12 +106,12 @@ export class NostrListing {
 
   static fromNostrEvent(event: NostrEvent): NostrListing {
     const listing = new NostrListing();
-    listing.eventId = event.id ?? '';
+    listing.eventId = event.id;
     listing.pubkey = event.pubkey;
     listing.kind = event.kind || 0;
     listing.content = event.content;
     listing.created_at = new Date((event.created_at || 0) * 1000);
-    listing.tags = {};
+    listing.tags = event.tags?.map((tag: string[]) => tag.join(':')) || [];
 
     // Process tags
     const tagMap = new Map<string, string[]>();
@@ -140,13 +121,12 @@ export class NostrListing {
       const [tagName, ...tagValues] = tag;
 
       if (tagName === 'd') {
-        listing.d = tagValues[0] ?? '';
+        listing.d = tagValues[0];
       }
 
       if (tagName === 'image') {
-        const image = new Image();
-        image.url = tagValues[0] ?? '';
-        image.sha256 = getBasename(tagValues[0] ?? '');
+        const image = { url: tagValues[0] } as Image;
+        image.sha256 = getBasename(tagValues[0]);
         listing.images.push(image);
       } else {
         if (!tagMap.has(tagName)) {
@@ -161,51 +141,150 @@ export class NostrListing {
         listing.currency = currency;
         listing.frequency = frequency || null;
       } else if (tagName === 'g') {
-        const coord = geohash.decode(tagValues[0] ?? '');
+        const coord = geohash.decode(tagValues[0]);
         listing.location = {
           type: 'Point',
           coordinates: [coord.longitude, coord.latitude],
         };
       } else if (tag[0] === 'title') {
-        listing.title = tag[1] ?? null;
+        listing.title = tag[1];
       }
 
       if (tagName === 'resin-type') {
-        listing.resinType = tag[1] ?? '';
+        listing.resinType = tag[1];
       }
 
       if (tagName === 'street') {
-        listing.street = tag[1] ?? '';
+        listing.street = tag[1];
       }
 
       if (tagName === 'city') {
-        listing.city = tag[1] ?? '';
+        listing.city = tag[1];
       }
 
       if (tagName === 'country') {
-        listing.country = tag[1] ?? '';
+        listing.country = tag[1];
       }
 
       if (tagName === 'attribution') {
-        listing.attribution = tag[1] ?? '';
+        listing.attribution = tag[1];
       }
     }
 
-    listing.tags = Object.fromEntries(tagMap) as ListingTags;
+    listing.tags = Object.fromEntries(tagMap);
 
     return listing;
   }
 
+  getGeohash(): string | null {
+    if (this.location) {
+      const [lon, lat] = this.location.coordinates;
+      return geohash.encode(lat, lon);
+    }
+    return null;
+  }
+
+  @AfterInsert()
+  @AfterUpdate()
+  async updateTypesense() {
+    const typesenseService = new TypesenseService();
+
+    const keyFeatures = [];
+
+    // Add features if they exist and are true
+    if (this.tags.security_system) keyFeatures.push('Security system');
+    if (this.tags.swimming_pool) keyFeatures.push('Swimming pool');
+    if (this.tags.home_office) keyFeatures.push('Home office space');
+    if (this.tags.solar_panels) keyFeatures.push('Solar panels');
+    if (this.tags.parking) keyFeatures.push('Parking');
+    if (this.tags.has_jacuzzi) keyFeatures.push('Jacuzzi');
+    if (this.tags.has_coworking) keyFeatures.push('Coworking space');
+    if (this.tags.has_gym) keyFeatures.push('Gym');
+    if (this.tags.has_garden) keyFeatures.push('Garden');
+    if (this.tags.has_security) keyFeatures.push('Security');
+
+    const baseDoc = {
+      id: this.eventId.toString(),
+      kind: this.kind,
+      slug: this.slug,
+      title: this.title,
+      description: this.content,
+      location: {
+        street: this.street,
+        city: this.city,
+        country: this.country,
+        coordinates: this.location?.coordinates,
+        district: String(this.tags.district),
+      },
+      property: {
+        size: Math.round(Number(this.tags.size)),
+        bedrooms: Number(this.tags.bedrooms),
+      },
+      additional_details: {
+        cooling: Boolean(this.tags.cooling),
+        has_garden: Boolean(this.tags.garden),
+        heating: Boolean(this.tags.heating),
+        number_of_floors: Number(this.tags.floors),
+        parking: Boolean(this.tags.parking),
+        type: String(this.tags.t?.[1]),
+        year_built: this.tags.completion_date
+          ? new Date(this.tags.completion_date).getFullYear()
+          : null,
+      },
+      key_features: keyFeatures,
+      'resin-type': this.resinType,
+      price: Number(this.amount),
+      images: this.images.map((image) => {
+        let thumbnails = [];
+        if (image.thumbnails) {
+          thumbnails = image.thumbnails.map((thumbnail) => {
+            return {
+              url: `${process.env.BLOSSOM_SERVER}/${thumbnail.sha256}.webp`,
+              width: thumbnail.width,
+              height: thumbnail.height,
+            };
+          });
+        }
+
+        return {
+          blurhash: image.blurhash,
+          files: [
+            ...thumbnails,
+            {
+              url: `${process.env.BLOSSOM_SERVER}/${image.sha256}.webp`,
+              width: image.width,
+              height: image.height,
+            },
+          ],
+        };
+      }),
+    };
+
+    if (this.attribution) baseDoc.attribution = this.attribution;
+
+    if (this.images.length > 0 && this.images[0].blurhash) {
+      baseDoc.blurhash = this.images[0].blurhash;
+    }
+
+    await typesenseService.indexDocument(NostrListing.INDEX_NAME, baseDoc);
+  }
+
   asNostrEvent(): NostrEvent {
-    const e: NostrEvent = {
+    const e = {
       id: this.eventId,
       pubkey: this.pubkey,
       created_at: this.created_at.getTime() / 1000,
       kind: this.kind,
       content: this.content,
-      tags: Object.entries(this.tags).map(([k, v]) => [k, ...(Array.isArray(v) ? v : [String(v)])]),
-      sig: '',
+      tags: Object.entries(this.tags).map(([k, v]) => [k, ...v]),
     };
+
+    e.tags = e.tags.map((tag: string[]) => {
+      if (typeof tag[1] === 'boolean') {
+        tag[1] = String(tag[1]);
+      }
+      return tag;
+    });
 
     e.tags = [
       ...e.tags,
@@ -237,11 +316,22 @@ export class NostrListing {
       .filter(Boolean)
       .join(' ');
 
-    return slugify(parts, {
-      lower: true,
-      strict: true,
-      trim: true,
-      locale: 'en',
+    return slugify.default(parts, {
+      lower: true, // Convert to lowercase
+      strict: true, // Strip special characters
+      trim: true, // Trim leading and trailing spaces
+      locale: 'en', // Use English locale
     });
+  }
+
+  @AfterInsert()
+  @AfterUpdate()
+  async addToEventHistory() {
+    if (this.eventId) {
+      const history = new NostrEventHistory();
+      history.eventId = this.eventId;
+      history.listing = this;
+      await AppDataSource.getRepository(NostrEventHistory).save(history);
+    }
   }
 }
